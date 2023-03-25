@@ -26,9 +26,8 @@ function GetModelViewMatrix( translationX, translationY, translationZ, rotationX
 
 	var rot = MatrixMult(rotY, rotX);
 
-	var transformation = MatrixMult(trans, rot);
-
-	return transformation;
+	var mv = MatrixMult(trans, rot);
+	return mv;
 }
 
 
@@ -42,39 +41,36 @@ class MeshDrawer
 		// [TO-DO] initializations
 		this.prog = InitShaderProgram(meshVS, meshFS);
 
-		// transformations
-		this.mvp = getUniformLocation(this.prog, 'mvp');
-		this.mv = getUniformLocation(this.prog, 'mv');
-		this.imv = getUniformLocation(this.prog, 'imv');
+		// Uniform transformations
+		this.projection = gl.getUniformLocation(this.prog, 'projection');
+		this.mvt = gl.getUniformLocation(this.prog, 'mvt');
+		this.imvt = gl.getUniformLocation(this.prog, 'imvt');
 
 		// booleans
-		this.showTexture = getUniformLocation(this.prog, 'show');
-		this.flip = getUniformLocation(this.prog, 'flip');
-		this.hasText = getUniformLocation(this.prog, 'validTex');
+		this.show = gl.getUniformLocation(this.prog, 'show');
+		this.flip = gl.getUniformLocation(this.prog, 'flip');
+		this.validTex = gl.getUniformLocation(this.prog, 'validTex');
 
-		// Model params
-		this.verPos = getAttribLocation(this.prog, 'pos');
-		this.textCoords = getAttribLocation(this.prog, 'txc');
-		this.normals = getAttribLocation(this.prog, 'normals');
+		// Blinn/Phong Vars
+		this.I = gl.getUniformLocation(this.prog, 'I');
+		this.InitL = gl.getUniformLocation(this.prog, 'InitL');
+		this.shiny = gl.getUniformLocation(this.prog, 'alpha');
 
+		// attribute Model Params
+		this.vertPos = gl.getAttribLocation(this.prog, 'pos');
+		this.textCoords = gl.getAttribLocation(this.prog, 'txc');
+		this.normals = gl.getAttribLocation(this.prog, 'normals');
 
-		// Blinn/Phone Variables
-		this.lightIntensity = getUniformLocation(this.prog, 'lightIntensity');
-		this.omega = getUniformLocation(this.prog, 'initL');
-		this.shininess = getUniformLocation(this.prog, 'alpha');
-
-		// Attribute Buffers
+		// Buffers
 		this.vertBuffer = gl.createBuffer();
 		this.textBuffer = gl.createBuffer();
 		this.normsBuffer = gl.createBuffer();
 
-		// Default Vars
+		// Default
 		gl.useProgram(this.prog);
-		gl.uniform1i(this.showTexture, 1);
-		gl.uniform1i(this.hasText, 0);
-		gl.uniform1f(this.shininess, 100);
-		gl.uniform4fv(this.lightIntensity, vec4(1, 1, 1, 1));
-		//gl.uniform4fv(this.ambient, vec4(1, 1, 1, 1));
+		gl.uniform1i(this.show, 1);
+		gl.uniform1i(this.validTex, 0);
+		gl.uniform4f(this.I, 1, 1, 1, 1);
 	}
 	
 	// This method is called every time the user opens an OBJ file.
@@ -90,17 +86,15 @@ class MeshDrawer
 	// Note that this method can be called multiple times.
 	setMesh( vertPos, texCoords, normals )
 	{
-		gl.useProgram(this.prog);
-		// [TO-DO] Update the contents of the vertex buffer objects.
 		gl.bindBuffer(gl.ARRAY_BUFFER, this.vertBuffer);
 		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertPos), gl.STATIC_DRAW);
 
-		gl.bindBuffer(gl.ARRAY_BUFFER, this.txtBuffer);
+		gl.bindBuffer(gl.ARRAY_BUFFER, this.textBuffer);
 		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texCoords), gl.STATIC_DRAW);
 
 		gl.bindBuffer(gl.ARRAY_BUFFER, this.normsBuffer);
 		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(normals), gl.STATIC_DRAW);
-
+		// [TO-DO] Update the contents of the vertex buffer objects.
 		this.numTriangles = vertPos.length / 3;
 	}
 	
@@ -109,14 +103,14 @@ class MeshDrawer
 	// The argument is a boolean that indicates if the checkbox is checked.
 	swapYZ( swap )
 	{
-		// [TO-DO] Set the uniform parameter(s) of the vertex shader
 		gl.useProgram(this.prog);
 
 		if (swap) {
 			gl.uniform1i(this.flip, 1);
 		} else {
 			gl.uniform1i(this.flip, 0);
-		}
+        }
+		// [TO-DO] Set the uniform parameter(s) of the vertex shader
 	}
 	
 	// This method is called to draw the triangular mesh.
@@ -128,23 +122,22 @@ class MeshDrawer
 	{
 		// [TO-DO] Complete the WebGL initializations before drawing
 		gl.useProgram(this.prog);
-
-		gl.uniformMatrix4fv(this.mvp, false, matrixMVP);
-		gl.uniformMatrix4fv(this.mv, false, matrixMV);
-		gl.uniformMatrix3fv(this.imv, false, matrixNormal);
+		gl.uniformMatrix4fv(this.projection, false, matrixMVP);
+		gl.uniformMatrix4fv(this.mvt, false, matrixMV);
+		gl.uniformMatrix3fv(this.imvt, false, matrixNormal);
 
 		gl.bindBuffer(gl.ARRAY_BUFFER, this.vertBuffer);
 		gl.vertexAttribPointer(this.vertPos, 3, gl.FLOAT, false, 0, 0);
 		gl.enableVertexAttribArray(this.vertPos);
 
-		gl.bindBuffer(gl.ARRAY_BUFFER, this.txtBuffer);
-		gl.vertexAttribPointer(this.txtCoord, 2, gl.FLOAT, false, 0, 0);
-		gl.enableVertexAttribArray(this.txtCoord);
+		gl.bindBuffer(gl.ARRAY_BUFFER, this.textBuffer);
+		gl.vertexAttribPointer(this.textCoords, 2, gl.FLOAT, false, 0, 0);
+		gl.enableVertexAttribArray(this.textCoords);
 
-		gl.bindBuffer(gl.ARRAY_BUFFER, this.normBuffer);
+		gl.bindBuffer(gl.ARRAY_BUFFER, this.normsBuffer);
 		gl.vertexAttribPointer(this.normals, 3, gl.FLOAT, false, 0, 0);
 		gl.enableVertexAttribArray(this.normals);
-		
+
 		gl.drawArrays( gl.TRIANGLES, 0, this.numTriangles );
 	}
 	
@@ -170,7 +163,7 @@ class MeshDrawer
 		gl.useProgram(this.prog);
 		this.shader = gl.getUniformLocation(this.prog, 'tex');
 		gl.uniform1i(this.shader, 0);
-		gl.uniform1i(this.hasTex, 1);
+		gl.uniform1i(this.validTex, 1);
 	}
 	
 	// This method is called when the user changes the state of the
@@ -178,62 +171,58 @@ class MeshDrawer
 	// The argument is a boolean that indicates if the checkbox is checked.
 	showTexture( show )
 	{
-		// [TO-DO] set the uniform parameter(s) of the fragment shader to specify if it should use the texture.
 		gl.useProgram(this.prog);
 
 		if (show) {
-			gl.uniform1i(this.showTexture, 1);
+			gl.uniform1i(this.show, 1);
 		} else {
-			gl.uniform1i(this.showTexture, 0);
-		}
+			gl.uniform1i(this.show, 0);
+        }
+		// [TO-DO] set the uniform parameter(s) of the fragment shader to specify if it should use the texture.
 	}
 	
 	// This method is called to set the incoming light direction
 	setLightDir( x, y, z )
 	{
-		// [TO-DO] set the uniform parameter(s) of the fragment shader to specify the light direction.
 		gl.useProgram(this.prog);
 
-		gl.uniform3fv(this.omega, vec3(x, y, z));
+		gl.uniform3f(this.InitL, x, y, z);
 	}
 	
 	// This method is called to set the shininess of the material
 	setShininess( shininess )
 	{
-		// [TO-DO] set the uniform parameter(s) of the fragment shader to specify the shininess.
 		gl.useProgram(this.prog);
-
-		gl.uniform1f(this.shininess, shininess);
+		gl.uniform1f(this.shiny, shininess);
 	}
 }
 
 var meshVS = `
 	precision mediump float;
+	uniform mat4 projection;
+	uniform mat4 mvt;
+	uniform mat3 imvt;
+	uniform vec3 InitL;
+	uniform int flip;
+
 	attribute vec3 pos;
 	attribute vec2 txc;
 	attribute vec3 normals;
 
 	varying vec2 texCoord;
-	varying vec3 omega, N, V;
-	
-	uniform mat4 mvp;
-	uniform mat4 mv;
-	uniform mat3 imv;
-	uniform vec3 initL;
-	uniform int flip;
+	varying vec3 L, N, V;
 
-	void main()
-	{
+	void main() {
 		if (flip == 1) {
 			vec3 position = vec3(pos[0], pos[2], pos[1]);
-			gl_Position = mvp * mv * vec4(position, 1);
+			gl_Position = projection * vec4(position, 1);
 		} else {
-			gl_Position = mvp * vec4(pos, 1);
+			gl_Position = projection * vec4(pos, 1);
 		}
 
-		N = normalize((mv * vec4(normals, 1)).xyz);
-		V = -normalize((mv * vec4(pos, 1)).xyz);
-		omega = normalize((mv * vec4(initL, 1)).xyz);
+		N = normalize((imvt * normals).xyz);
+		V = -normalize((mvt * vec4(pos, 1)).xyz);
+		L = normalize((mvt * vec4(InitL, 0)).xyz);
 
 		texCoord = txc;
 	}
@@ -241,34 +230,33 @@ var meshVS = `
 
 var meshFS = `
 	precision mediump float;
-	uniform vec4 lightIntensity;
+	uniform vec4 I;
 	uniform float alpha;
 	uniform int show;
 	uniform int validTex;
 	uniform sampler2D tex;
-	
-	varying vec2 texCoord;
-	varying vec3 omega, N, V;
 
-	void main()
-	{
+	varying vec2 texCoord;
+	varying vec3 L, N, V;
+
+	void main() {
 		vec4 diffuseColor = vec4(1, 1, 1, 1);
 		if (show == 1 && validTex == 1) {
 			diffuseColor = texture2D(tex, texCoord);
-		} 
-		
-		vec4 diffuse = max(dot(omega, N), 0.0) * (diffuseColor * lightIntensity);
-		vec3 H = normalize(omega + V);
-		vec4 specular = 
-			pow(max(dot(N, H), 0.0), alpha) * (vec4(1, 1, 1, 1) * lightIntensity);
-
-		if (dot(omega, N) < 0.0) {
-			specular = vec4(0.0, 0.0, 0.0, 1.0);
 		}
 
-		vec4 colorFinal = diffuse + specular;
-		colorFinal.a = 1.0;
+		vec4 diffuse = max(dot(L, N), 0.0) * (diffuseColor * I);
+		vec3 H = normalize(L + V);
 
-		gl_FragColor = colorFinal;
+		vec4 specular = 
+			pow(max(dot(N, H), 0.0), alpha) * (vec4(1,1,1,1) * I);
+
+		if (dot(L, N) < 0.0) {
+			specular = vec4(0.0,0.0,0.0, 1.0);
+		}
+
+		vec4 shaded = diffuse + specular;
+
+		gl_FragColor = shaded;
 	}
 `;
